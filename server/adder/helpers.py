@@ -18,7 +18,7 @@ class Telegram:
         """
         Create and return prepared telegram client based request or phone
         """
-        session_path = "/Users/mac/projects/fun/grpadder/grad/sessions"
+        session_path = "/Users/mac/projects/fun/grpadder/telegram-extras/server/sessions"
         api_id = 1027637
         api_hash = "da1df5c8b2e03ec778c97f7f74fc9649"
 
