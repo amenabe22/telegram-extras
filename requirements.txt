@@ -1,0 +1,6 @@
+django-telethon-authorization
+Django==4.0.4
+graphene-django
+graphene_django
+django-graphql-playground
+django-cors-headers
