@@ -1,9 +1,14 @@
+import os
 import logging
 import graphene
+import pandas as pd
 from .helpers import Telegram
+from django.conf import settings
+from .types import MembersResponse
+from django.utils.text import slugify
 from .models import TelegramAuthorization
 from django.contrib.auth.models import User
-from telethon.tl.types import PeerUser
+from telethon.tl.types import PeerUser, InputPeerChat
 from .exceptions import TelegramAuthorizationException
 from telethon.errors import RPCError, SessionPasswordNeededError
 
@@ -146,3 +151,33 @@ class TelegramTestSession(graphene.Mutation):
         print("Activity Status: ", my_chat.status)
 
         return TelegramTestSession(status=str(my_chat.status))
+
+
+class ScrapeFromTelegramGroup(graphene.Mutation):
+    download_path = graphene.String()
+
+    class Arguments:
+        id = graphene.Int()
+
+    def mutate(self, info, id):
+        members_list = []
+        usr = User.objects.first()
+        telegram_authorization = TelegramAuthorization.objects.get(user=usr)
+        client = Telegram.get_client(telegram_authorization.phone)
+        group_entity = client.get_entity(id)
+        members = client.get_participants(group_entity)
+        for mb in members:
+            members_list.append({
+                # "id": mb.id,
+                "name": mb.first_name,
+                "username": mb.username,
+                "phone": mb.phone
+            })
+        df = pd.DataFrame.from_dict(members_list)
+        storage_path = os.path.join(settings.BASE_DIR, "media/members_export")
+        clean_title = slugify(group_entity.title)
+        df.to_csv(f'{storage_path}/{clean_title}.csv',
+                  index=False, header=True)
+        download_path = f"http://{info.context.get_host()}/media/members_export/{clean_title}.csv"
+        print(info.context.get_host(), "host address")
+        return ScrapeFromTelegramGroup(download_path=download_path)
