@@ -1,7 +1,10 @@
+import csv
 import os
 import logging
 import graphene
 import pandas as pd
+
+from .utils import add_to_grp, cleanCSVData
 from .helpers import Telegram
 from django.conf import settings
 from .types import MembersResponse
@@ -179,5 +182,34 @@ class ScrapeFromTelegramGroup(graphene.Mutation):
         df.to_csv(f'{storage_path}/{clean_title}.csv',
                   index=False, header=True)
         download_path = f"http://{info.context.get_host()}/media/members_export/{clean_title}.csv"
-        print(info.context.get_host(), "host address")
         return ScrapeFromTelegramGroup(download_path=download_path)
+
+
+class AddTelegramGroupMembers(graphene.Mutation):
+    stat = graphene.Boolean()
+
+    class Arguments:
+        group = graphene.String()
+        username = graphene.String()
+
+    def mutate(self, info, group, username):
+        usr = User.objects.first()
+        telegram_authorization = TelegramAuthorization.objects.get(user=usr)
+        client = Telegram.get_client(telegram_authorization.phone)
+        group_entity = client.get_entity(group)
+
+        # TODO: add identifier for the scraped file.
+        storage_path = os.path.join(settings.BASE_DIR, "media/members_export/Coders_Needed.csv")
+
+        csvUsrs = cleanCSVData(storage_path)
+        for usr in csvUsrs[0:10]:
+            add_to_grp(
+                client,
+                mode="uname",
+                data=None,
+                uname=usr["username"],
+                grid=group_entity.id,
+                grhash=group_entity.access_hash,
+            )
+            print("Added: {}".format(usr["username"]))
+        return AddTelegramGroupMembers(stat=True)

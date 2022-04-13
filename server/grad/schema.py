@@ -8,6 +8,7 @@ from telethon.tl.types import InputPeerEmpty
 from telethon.tl.functions.messages import GetDialogsRequest
 from adder.types import TelegramGroupsType
 from adder.mutations import ScrapeFromTelegramGroup
+from adder.mutations import AddTelegramGroupMembers
 
 
 class Query(graphene.ObjectType):
@@ -54,6 +55,9 @@ class Mutations(graphene.ObjectType):
         description="Check user telegram status with username")
     scrape_from_group = ScrapeFromTelegramGroup.Field(
         description="Scrape from a telegram group"
+    )
+    add_telegram_members = AddTelegramGroupMembers.Field(
+        description="Mutation to add members to groups and members"
     )
 
 
