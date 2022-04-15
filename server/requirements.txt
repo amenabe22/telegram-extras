@@ -1,7 +1,11 @@
-django-telethon-authorization
+pandas
+redis==3.5.3
 Django==4.0.4
+celery==5.0.0
+django-celery-beat==2.1.0
+django-celery-results==2.0.0
 graphene-django
 graphene_django
-django-graphql-playground
 django-cors-headers
-pandas
+django-graphql-playground
+django-telethon-authorization
