@@ -1,10 +1,15 @@
+from concurrent.futures import process
 import random
 import time
+from adder.helpers import Telegram
+from adder.models import TelegramAuthorization
+from adder.utils import add_to_grp
 from celery import Celery
 from decimal import Decimal
 from grad.celery import app
 from .base import BaseTask
 from celery_progress.backend import ProgressRecorder
+from django.contrib.auth.models import User
 
 
 @app.task(name='tasks.add')
@@ -20,8 +25,8 @@ def long_task():
     return True
 
 
-class RunLongProcess(BaseTask):
-    name = "RunLongProcess"
+class RunTelegramGroupAddProcess(BaseTask):
+    name = "RunTelegramGroupAddProcess"
 
     def __init__(self) -> None:
         self.ttask_id = None
@@ -41,25 +46,50 @@ class RunLongProcess(BaseTask):
                 'current': current,
                 'total': total,
                 'percent': percent,
-                'description': 'counting sheeps'
             }
         )
 
-    def run(self, *args, **kwargs):
+    def run(self, targets, group, mode, *args, **kwargs):
         progress_recorder = ProgressRecorder(self)
         self.ttask_id = self.request.id
-        for x in range(0, 100):
-            time.sleep(1)
-            progress_recorder.set_progress(
-                x, total=100, description=f"Running {x}")
+        print(type(targets), "Dawg")
+        targets_count = len(targets)
+        updates = 0
+        for idx, target in enumerate(targets):
+            finished = 100*(idx/targets_count)
+            # TODO: get user id from parent
+            usr = User.objects.first()
+            telegram_authorization = TelegramAuthorization.objects.get(
+                user=usr)
+            client = Telegram.get_client(telegram_authorization.phone)
+            group_entity = client.get_entity(group)
+
+            add_to_grp(
+                client,
+                mode=mode,
+                data={"uid": target["id"], "uhash": target["access_hash"]},
+                uname=int(target["id"]),
+                grid=group_entity.id,
+                grhash=group_entity.access_hash,
+            )
+            if divmod(finished, 10) == (updates, 0):
+                updates += 1
+                process_msg = 'Finished processing {} % of all events'.format(
+                    int(finished))
+                print(process_msg)
+                progress_recorder.set_progress(
+                    int(finished), total=100, description=f"Running {process_msg}")
+
+        # for x in range(0, 100):
+        #     time.sleep(1)
+        #     progress_recorder.set_progress(
+        #         x, total=100, description=f"Running {x}")
 
         return {
             "detail": "Success"
         }
 
 
-
-
-@app.task(bind=True, base=RunLongProcess)
-def init_long_process(self, *args, **kwargs):
+@app.task(bind=True, base=RunTelegramGroupAddProcess)
+def init_telegram_invite_process(self, *args, **kwargs):
     return super(type(self), self).run(*args, **kwargs)

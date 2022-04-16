@@ -13,6 +13,7 @@ from .types import MembersResponse
 from django.utils.text import slugify
 from .models import TelegramAuthorization
 from django.contrib.auth.models import User
+from .tasks import init_telegram_invite_process
 from telethon.tl.types import PeerUser, InputPeerChat
 from .exceptions import TelegramAuthorizationException
 from telethon.errors import RPCError, SessionPasswordNeededError
@@ -173,10 +174,11 @@ class ScrapeFromTelegramGroup(graphene.Mutation):
         members = client.get_participants(group_entity)
         for mb in members:
             members_list.append({
-                # "id": mb.id,
+                "id": mb.id,
                 "name": mb.first_name,
                 "username": mb.username,
-                "phone": mb.phone
+                "phone": mb.phone,
+                "access_hash": mb.access_hash,
             })
         df = pd.DataFrame.from_dict(members_list)
         storage_path = os.path.join(settings.BASE_DIR, "media/members_export")
@@ -188,34 +190,29 @@ class ScrapeFromTelegramGroup(graphene.Mutation):
 
 
 class AddTelegramGroupMembers(graphene.Mutation):
-    stat = graphene.Boolean()
+    task_id = graphene.String()
 
     class Arguments:
         group = graphene.String()
         count = graphene.Int()
 
     def mutate(self, info, group, count):
-        usr = User.objects.first()
-        telegram_authorization = TelegramAuthorization.objects.get(user=usr)
-        client = Telegram.get_client(telegram_authorization.phone)
-        group_entity = client.get_entity(group)
+        # usr = User.objects.first()
+        # telegram_authorization = TelegramAuthorization.objects.get(user=usr)
+        # client = Telegram.get_client(telegram_authorization.phone)
+        # group_entity = client.get_entity(group)
 
         # TODO: add identifier for the scraped file.
-        storage_path = os.path.join(settings.BASE_DIR, "media/members_export/Coders_Needed.csv")
+        storage_path = os.path.join(
+            settings.BASE_DIR, "media/members_export/coders-needed.csv")
 
         csvUsrs = cleanCSVData(storage_path)
         if(count > len(csvUsrs)):
             raise Exception("Count is larger than list amount")
         elif(count > MAX_GRP_ADD_LIMIT):
             raise Exception("Max group adding limit reached")
-        for usr in csvUsrs[0:count]:
-            add_to_grp(
-                client,
-                mode="uname",
-                data=None,
-                uname=usr["username"],
-                grid=group_entity.id,
-                grhash=group_entity.access_hash,
-            )
-            print("Added: {}".format(usr["username"]))
-        return AddTelegramGroupMembers(stat=True)
+        response = init_telegram_invite_process.delay(
+            csvUsrs[:count], group, "uname"
+        )
+
+        return AddTelegramGroupMembers(task_id=response.task_id)

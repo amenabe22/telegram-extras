@@ -38,9 +38,9 @@ def cleanCSVData(input_f):
         next(rows, None)
         for row in rows:
             user = {}
-            user["username"] = row[0]
-            # user["id"] = int(row[1])
-            # user["access_hash"] = row[2]
+            user["username"] = row[2]
+            user["id"] = int(row[0])
+            user["access_hash"] = row[4]
             # user["name"] = row[3]
             users.append(user)
 

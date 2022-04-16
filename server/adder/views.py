@@ -124,28 +124,11 @@ def logout(request):
 def test_session(request):
     telegram_authorization = TelegramAuthorization.objects.all()[1]
     client = Telegram.get_client(telegram_authorization.phone)
-    last_date = None
-    chunk_size = 200
-    groups = []
+    # last_date = None
+    # chunk_size = 200
+    # groups = []
 
-    # get client information
-    # client_dialogs = client(
-    #      GetDialogsRequest(
-    #         offset_date=last_date,
-    #         offset_id=0,
-    #         offset_peer=InputPeerEmpty(),
-    #         limit=chunk_size,
-    #         # hash=0,
-    #     )
-    # )
-    # for ix,chat in enumerate(client_dialogs.chats):
-    #     print(f"[{ix}]: ", chat.title)
 
     target = client.get_input_entity('Courage16')
     my_chat    = client.get_entity(PeerUser(target.user_id))
-    print(my_chat.status)
-    # print(client,"The client")
-    # for part in client.iter_dialogs():
-    #     print(part)
-    # client.send_message(target, 'Test message')
     return JsonResponse({"Success" :"true"})
