@@ -1,9 +1,10 @@
+import json
 import graphene
 from adder.mutations import(
     RequestTelegramAuthCode, SubmitTelegramAuthCode, TelegramAuthLogout, TelegramTestSession)
 from adder.models import TelegramAuthorization
 from django.contrib.auth.models import User
-from adder.helpers import Telegram
+from adder.helpers import CoreProgress, Telegram
 from telethon.tl.types import InputPeerEmpty
 from telethon.tl.functions.messages import GetDialogsRequest
 from adder.types import TelegramGroupsType
@@ -13,6 +14,11 @@ from adder.mutations import AddTelegramGroupMembers
 
 class Query(graphene.ObjectType):
     fetch_members = graphene.List(TelegramGroupsType)
+    get_task_progress = graphene.JSONString(task=graphene.String())
+
+    def resolve_get_task_progress(self, info, task):
+        progress = CoreProgress(task)
+        return json.dumps(progress.get_info())
 
     def resolve_fetch_members(self, info):
         usr = User.objects.first()

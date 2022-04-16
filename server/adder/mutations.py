@@ -4,6 +4,8 @@ import logging
 import graphene
 import pandas as pd
 
+from .constants import MAX_GRP_ADD_LIMIT
+
 from .utils import add_to_grp, cleanCSVData
 from .helpers import Telegram
 from django.conf import settings
@@ -190,9 +192,9 @@ class AddTelegramGroupMembers(graphene.Mutation):
 
     class Arguments:
         group = graphene.String()
-        username = graphene.String()
+        count = graphene.Int()
 
-    def mutate(self, info, group, username):
+    def mutate(self, info, group, count):
         usr = User.objects.first()
         telegram_authorization = TelegramAuthorization.objects.get(user=usr)
         client = Telegram.get_client(telegram_authorization.phone)
@@ -202,7 +204,11 @@ class AddTelegramGroupMembers(graphene.Mutation):
         storage_path = os.path.join(settings.BASE_DIR, "media/members_export/Coders_Needed.csv")
 
         csvUsrs = cleanCSVData(storage_path)
-        for usr in csvUsrs[0:10]:
+        if(count > len(csvUsrs)):
+            raise Exception("Count is larger than list amount")
+        elif(count > MAX_GRP_ADD_LIMIT):
+            raise Exception("Max group adding limit reached")
+        for usr in csvUsrs[0:count]:
             add_to_grp(
                 client,
                 mode="uname",

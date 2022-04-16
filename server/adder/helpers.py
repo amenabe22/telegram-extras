@@ -3,12 +3,59 @@ from functools import wraps
 from typing import Union
 
 import os
+from unittest import result
 from django.http import JsonResponse, HttpRequest
 from telethon import TelegramClient
 from telethon.sessions import SQLiteSession
-
+from .constants import PROGRESS_STATE
+from celery.result import AsyncResult, allow_join_result
 from .models import TelegramAuthorization
 from .exceptions import TelegramAuthorizationException, PayloadException
+
+
+class CoreProgress(object):
+    def __init__(self, task_id) -> None:
+        self.task_id = task_id
+        self.result = AsyncResult(task_id)
+
+    def _get_completed_progress(self):
+        return {
+            'current': 100,
+            'total': 100,
+            'percent': 100,
+        }
+
+    def _get_unknown_progress(self):
+        return {
+            'pending': True,
+            'current': 0,
+            'total': 100,
+            'percent': 0,
+        }
+
+    def get_info(self):
+        print(self.result.state,"dawf")
+        if self.result.ready():
+            success = self.result.successful()
+            with allow_join_result():
+                return {
+                    'complete': True,
+                    'success': success,
+                    'progress': self._get_completed_progress(),
+                    'result': self.result.get(self.task_id) if success else str(self.result.info),
+                }
+        elif self.result.state == PROGRESS_STATE:
+            return {
+                'complete': False,
+                'success': None,
+                'progress': self.result.info
+            }
+        elif self.result.state in ['PENDING', 'STARTED']:
+            return {
+                'complete': False,
+                'success': None,
+                'progress': self._get_unknown_progress(),
+            }
 
 
 class Telegram:
@@ -25,9 +72,11 @@ class Telegram:
         if isinstance(request_or_phone, HttpRequest):
             user = request_or_phone.user
             try:
-                telegram_authorization = TelegramAuthorization.objects.get(user=user)
+                telegram_authorization = TelegramAuthorization.objects.get(
+                    user=user)
             except TelegramAuthorization.DoesNotExist:
-                raise TelegramAuthorizationException("User doesn't have valid telegram session")
+                raise TelegramAuthorizationException(
+                    "User doesn't have valid telegram session")
             phone = telegram_authorization.phone
         else:
             phone = request_or_phone
@@ -38,7 +87,8 @@ class Telegram:
                 raise TelegramAuthorizationException(
                     "SQLite session implementation used, but variable TG_SESSION_PATH was not set."
                 )
-            session = SQLiteSession(os.path.join(session_path, "%s.session" % phone))
+            session = SQLiteSession(os.path.join(
+                session_path, "%s.session" % phone))
         else:
             session = session_class(phone)
 
@@ -51,7 +101,8 @@ class Telegram:
         )
         connected = client.connect()
         if not connected:
-            raise TelegramAuthorizationException("Can't connect to telegram servers")
+            raise TelegramAuthorizationException(
+                "Can't connect to telegram servers")
 
         return client
 
@@ -79,7 +130,8 @@ def parse_json_payload(body, *keys):
     try:
         payload = json.loads(raw_payload)
     except (ValueError, TypeError) as exc:
-        raise PayloadException("Can't load JSON from raw payload '%s'\n%s" % (raw_payload, exc))
+        raise PayloadException(
+            "Can't load JSON from raw payload '%s'\n%s" % (raw_payload, exc))
     for key in keys:
         yield payload.get(key)
 
